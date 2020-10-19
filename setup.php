@@ -100,7 +100,7 @@ function uptime_poller_bottom () {
 	$poller_interval = read_config_option("poller_interval");
 
 //	$xold = db_fetch_assoc ('SELECT host_id, uptime, state FROM plugin_uptime_data');
-	$xold = db_fetch_assoc ('SELECT host_id, uptime, state FROM plugin_uptime_data where id in (select max(id) as id from  plugin_uptime_data group by host_id)');
+	$xold = db_fetch_assoc ('SELECT host_id, uptime, state FROM plugin_uptime_data WHERE id IN (select max(id) as id from  plugin_uptime_data group by host_id)');
 	foreach ($xold as $one)	{
 		$old[$one['host_id']]['uptime'] = $one['uptime'];
 		$old[$one['host_id']]['state'] = $one['state'];
@@ -114,7 +114,7 @@ function uptime_poller_bottom () {
 			$hid = $host['id'];
 			$host['uptime'] = $host['uptime']/100;	// remove ms
 
-			if (isset($old) > 0 && $old[$hid])	{ // older record exists
+			if (isset($old[$hid]))	{ // older record exists
 			
 				if ($old[$hid]['state'] == 'N')	{
 					if ($host['uptime'] == 0)	{  // down or failed polls
