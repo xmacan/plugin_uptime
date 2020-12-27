@@ -75,9 +75,10 @@ function seconds_to_time($secs)	{
 function uptime_rrd_graph_graph_options ($data) {
 	global $config;
 
-	$host_id = db_fetch_cell('SELECT host_id FROM graph_local WHERE id = ' . $data['graph_id']); 
-	$restarts = db_fetch_assoc ("SELECT timestamp FROM plugin_uptime_data WHERE
-		host_id = $host_id AND state = 'R' AND timestamp BETWEEN " . $data['start'] . " AND " . $data['end'] . " ORDER BY timestamp"); 
+	$host_id = db_fetch_cell_prepared('SELECT host_id FROM graph_local WHERE id = ?', array ($data['graph_id'])); 
+	$restarts = db_fetch_assoc_prepared ("SELECT timestamp FROM plugin_uptime_data WHERE
+		host_id = ? AND state = 'R' AND timestamp BETWEEN ? AND ? ORDER BY timestamp", 
+			array($host_id, $data['start'], $data['end']));
 
 	$count = 0;
 	foreach ($restarts as $restart)	{
@@ -99,8 +100,8 @@ function uptime_poller_bottom () {
 	$start = microtime(true);
 	$poller_interval = read_config_option("poller_interval");
 
-//	$xold = db_fetch_assoc ('SELECT host_id, uptime, state FROM plugin_uptime_data');
-	$xold = db_fetch_assoc ('SELECT host_id, uptime, state, timestamp FROM plugin_uptime_data WHERE id IN (select max(id) as id from  plugin_uptime_data group by host_id)');
+	$xold = db_fetch_assoc ('SELECT host_id, uptime, state, timestamp FROM plugin_uptime_data WHERE 
+		id IN (select max(id) AS id FROM  plugin_uptime_data GROUP BY host_id)');
 	foreach ($xold as $one)	{
 		$old[$one['host_id']]['uptime'] = $one['uptime'];
 		$old[$one['host_id']]['state'] = $one['state'];
@@ -116,73 +117,100 @@ function uptime_poller_bottom () {
 			$help_time = $host['uptime'];
 			$host['uptime'] = $host['uptime']/100;	// remove ms
 
+
 			if (isset($old[$hid]))	{ // older record exists
 
-
-			
 				if ($old[$hid]['state'] == 'N')	{
 					if ($host['uptime'] == 0)	{  // down or failed polls
-						db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-							VALUES (" . $host['id'] . ",0," . 
-							"unix_timestamp(),'D', 
-							'New device is down')");
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? ,0,unix_timestamp(),'D', 'New device is down')",
+							array($host['id']));
 					}
-					else	{
-						db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-							VALUES (" . $host['id'] . "," . $host['uptime'] . "," . 
-							"unix_timestamp() - " . $host['uptime']  . ",'R', 
-							concat('New device is up, counting uptime back'))");
-					}
-				}
-				
-// testuju to proti minulemu uptimu, coz je blbost. Kdyz byl nizky, tak tahle podminka neplati
-// musim takhle  vezmu old_uptime, zjistim si rozdil casu proti ted. Ten rozdil prictu
-// ke staremu uptimu. Kdyz je soucasny nizsi, je to restart
-// ten poller interval na konci je jen kvuli moznemu rozdilu par vterin
-				$diff = time() - $old[$hid]['timestamp']-$poller_interval;
+					else	{	// new device and has uptime
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? , ? , unix_timestamp() - ? ,'R', 'New device is up, counting uptime back')",
+							array ($host['id'], $host['uptime'], $host['uptime'])); 
 
-				if ($help_time > 0 && ($old[$hid]['uptime']+$diff) > $host['uptime'])	{ // restart
-
-					db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-						VALUES (" . $host['id'] . "," . $host['uptime'] . "," .
-						"unix_timestamp(),'R', 'Device restart, uptime was " . seconds_to_time($old[$hid]['uptime']+$diff+$poller_interval) . "')");
-					db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-						VALUES (" . $host['id'] . "," . $host['uptime'] . "," .
-						"unix_timestamp(),'U', 'Device is up')");
-				}
-				elseif ($host['uptime'] > 0 && $old[$hid]['state'] == "D")	{	// D->U
-					db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-						VALUES (" . $host['id'] . "," . $host['uptime'] . "," . 
-						"unix_timestamp(),'U', 'Device went up')");
-				}
-				elseif ($host['uptime'] == 0 && $old[$hid]['uptime'] > 0)	{ // ->D
-					db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-						VALUES (" . $host['id'] . ",0, " .
-						"unix_timestamp(),'D', 'Device went down, uptime was " . seconds_to_time($old[$hid]['uptime']+$diff+$poller_interval) . "')");
-				}
-				elseif ($host['uptime'] == $old[$hid]['uptime'] )	{ // failed polls or down
-
-					if ($old[$hid]['state'] == 'F')	{
-					    // nothing
-					}
-					if ($old[$hid]['state'] != 'F')	{
-						db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-							VALUES (" . $host['id'] . "," . $host['uptime'] . "," . 
-							"unix_timestamp(),'F', 'Failed poll or down')");
 					}
 				}
-				elseif ($host['uptime'] > 0 && $host['uptime'] > $old[$hid]['uptime'])	{ // is up
-
-					if ($old[$hid]['state'] == 'F')	{
-						db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-							VALUES (" . $host['id'] . "," . $host['uptime'] . "," . 
-							"unix_timestamp(),'U', 'Polling is ok')");
+                                elseif ($host['uptime'] == 0)   {
+                                        if ($old[$hid]['uptime'] > 0)   { // ->D
+                                                db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info)
+                                                        VALUES ( ? ,0, unix_timestamp(), 'D', 'Device went down, uptime was " . seconds_to_time($old[$hid]['uptime']) . "')",
+							array($host['id']));
+					}
+					else	{	//still down?
+					
+					
 					}
 				}
+				elseif ($host['uptime'] > 0 && $host['uptime'] < $poller_interval && $old[$hid]['uptime'] < $poller_interval )	{	
+					// special case - more restarts in short time
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? , ? , unix_timestamp(), 'R', 'Device restart (maybe moretimes), uptime was " . seconds_to_time($old[$hid]['uptime']) . "')",
+							array ($host['id'], $host['uptime']));
+
+					
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? ,? , unix_timestamp(),'U', 'Device is up')",
+							array ($host['id'], $host['uptime']));
+		
+                                }
+                                else	{	// host uptime > 0
+
+					if ($host['uptime'] == $old[$hid]['uptime'] )	{ // failed polls
+
+						if ($old[$hid]['state'] == 'F')	{
+					    	// nothing
+						}
+						
+						if ($old[$hid]['state'] != 'F')	{
+							db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? , ? , unix_timestamp(),'F', 'Failed poll')",
+							array ($host['id'], $host['uptime']));
+								
+						}
+					}
+
+					if ($host['uptime'] > $old[$hid]['uptime'])	{ // is up
+						if ($old[$hid]['state'] == 'F')	{
+							db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+								VALUES ( ? , ? , unix_timestamp(),'U', 'Polling is ok')",
+								array ($host['id'], $host['uptime']));
+
+						}
+					}
+
+					if ($old[$hid]['state'] == "D" || $old[$hid]['uptime'] == 0)	{	// D->U
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? , ? , unix_timestamp(),'R', 'Device is up after longer down state')",
+							array ($host['id'], $host['uptime']));
+
+
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+						VALUES ( ? , ?, unix_timestamp(),'U', 'Device went up')",
+						array ($host['id'],$host['uptime'])); 
+
+					}
+
+					if ($host['uptime'] < $old[$hid]['uptime'] && $old[$hid]['uptime'])	{	// restart in one poller cycle
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? , ? , unix_timestamp(),'R', 'Device restart, uptime was " . seconds_to_time($old[$hid]['uptime']) . "')",
+							array ($host['id'], $host['uptime']));
+
+					
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? ,? , unix_timestamp(),'U', 'Device is up')",
+							array ($host['id'], $host['uptime']));
+
+					}
+                                }
+
 			}
-			else	{ // no older records
-				db_execute("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
-					VALUES (" . $host['id'] . "," . $host['uptime'] . ",unix_timestamp(),'N', concat('New device added ', now()))");
+			else	{	// without any old records = new device
+				db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+					VALUES ( ? , ? , unix_timestamp(),'N', concat('New device added ', now()))",
+					array ($host['id'], $host['uptime']));
 			}
 		}
 	}
@@ -214,6 +242,14 @@ function uptime_host_edit_bottom ()	{
         	print "<td class='nowrap'>" . $record['info'] . '</td>';		
 		form_end_row();
 	}
+
+	$count = db_fetch_cell_prepared ("SELECT count(*) FROM host WHERE disabled != 'on' AND id = ? AND  availability_method IN (1,2,5,6)",
+		array(get_request_var('id')));
+
+	if ($count == 0)	{
+		print '<br/><b>For uptime plugin you have to choose any SNMP availability option</b><br/>';
+	}
+
 
 	html_end_box(false);
 }
