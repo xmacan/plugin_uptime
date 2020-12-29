@@ -227,7 +227,7 @@ function uptime_host_edit_bottom ()	{
 	}
 
 	print '<br/><br/>';
-	html_start_box('<strong>Uptime history</strong>', '100%', '', '3', 'center', '');
+	html_start_box('<strong>Uptime/restart history</strong>', '100%', '', '3', 'center', '');
 	print "<tr class='tableHeader'><th>Date</th><th>Flag</th><th>Info</th></tr>";
 
         $records = db_fetch_assoc_prepared ('SELECT * FROM plugin_uptime_data WHERE host_id = ? ORDER BY id',
