@@ -32,6 +32,8 @@ If you find a problem, let me know via github or https://forums.cacti.net
    
 
 ## Changelog
+	--- 0.2
+		Add Uptime Tab
 	--- 0.1
 		Beginning
 

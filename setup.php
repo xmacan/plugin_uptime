@@ -1,7 +1,7 @@
 <?php
 /*
  +-------------------------------------------------------------------------+
- | Copyright (C) 2019-2020 Petr Macek                                      |
+ | Copyright (C) 2019-2022 Petr Macek                                      |
  |                                                                         |
  | This program is free software; you can redistribute it and/or           |
  | modify it under the terms of the GNU General Public License             |
@@ -27,7 +27,11 @@ function plugin_uptime_install ()	{
         api_plugin_register_hook('uptime', 'poller_bottom', 'uptime_poller_bottom', 'setup.php');
 	api_plugin_register_hook('uptime', 'host_edit_bottom', 'uptime_host_edit_bottom', 'setup.php');
 	api_plugin_register_hook('uptime', 'rrd_graph_graph_options', 'uptime_rrd_graph_graph_options', 'setup.php');
-	api_plugin_register_realm('uptime', 'setup.php,', 'Plugin uptime - view', 1);
+        api_plugin_register_hook('uptime', 'top_header_tabs', 'uptime_show_tab', 'setup.php');
+        api_plugin_register_hook('uptime', 'top_graph_header_tabs', 'uptime_show_tab', 'setup.php');
+
+	api_plugin_register_realm('uptime', 'setup.php,uptime.php,uptime_tab.php', 'Plugin uptime - view', 1);
+
 	uptime_setup_database();
 }
 
@@ -66,6 +70,19 @@ function plugin_uptime_version()	{
 function plugin_uptime_check_config () {
 	return true;
 }
+
+function uptime_show_tab () {
+        global $config;
+        if (api_user_realm_auth('uptime.php')) {
+                $cp = false;
+                if (basename($_SERVER['PHP_SELF']) == 'uptime.php')
+                $cp = true;
+                print '<a href="' . $config['url_path'] . 'plugins/uptime/uptime_tab.php"><img src="' . $config['url_path'] .
+                'plugins/uptime/images/tab_uptime' . ($cp ? '_down': '') . '.gif" alt="uptime" align="absmiddle" border="0"></a>';
+        }
+}
+
+
 
 function seconds_to_time($secs)	{
     $dt = new DateTime('@' . $secs, new DateTimeZone('UTC'));
@@ -226,31 +243,11 @@ function uptime_host_edit_bottom ()	{
                 return false;
 	}
 
+	include_once('./plugins/uptime/functions.php');
+
+
 	print '<br/><br/>';
-	html_start_box('<strong>Uptime/restart history</strong>', '100%', '', '3', 'center', '');
-	print "<tr class='tableHeader'><th>Date</th><th>Flag</th><th>Info</th></tr>";
-
-        $records = db_fetch_assoc_prepared ('SELECT * FROM plugin_uptime_data WHERE host_id = ? ORDER BY id',
-		array(get_request_var('id')));
-    
-	$i = 0;
-	foreach ($records as $record)	{
-    		$i++;
-                form_alternate_row("x$i", true);
-        	print "<td class='nowrap'>" . date('Y-m-d H:i',$record['timestamp']) . '</td>';
-        	print "<td class='nowrap'>" . $record['state'] . '</td>';
-        	print "<td class='nowrap'>" . $record['info'] . '</td>';		
-		form_end_row();
-	}
-
-	$count = db_fetch_cell_prepared ("SELECT count(*) FROM host WHERE disabled != 'on' AND id = ? AND  availability_method IN (1,2,5,6)",
-		array(get_request_var('id')));
-
-	if ($count == 0)	{
-		print '<br/><b>For uptime plugin you have to choose any SNMP availability option</b><br/>';
-	}
-
-
-	html_end_box(false);
+	uptime_display_events(get_request_var('id'));	
 }
+
 
