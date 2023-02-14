@@ -166,8 +166,8 @@ function uptime_poller_bottom () {
 						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
 							VALUES ( ? , ? , unix_timestamp(), 'R', 'Device restart (maybe moretimes), uptime was " . seconds_to_time($old[$hid]['uptime']) . "')",
 							array ($host['id'], $host['uptime']));
-
-					
+	
+			
 						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
 							VALUES ( ? ,? , unix_timestamp(),'U', 'Device is up')",
 							array ($host['id'], $host['uptime']));
@@ -196,6 +196,20 @@ function uptime_poller_bottom () {
 								array ($host['id'], $host['uptime']));
 
 						}
+						else if ($old[$hid]['state'] == 'O') {
+							$tmp = db_fetch_assoc ("SELECT id, state FROM plugin_uptime_data 
+								WHERE host_id = " . $host['id'] . " order by id desc limit 2");
+							if ($tmp[0]['state'] == 'O' && $tmp[1]['state'] == 'O') {
+								db_execute_prepared("DELETE FROM plugin_uptime_data 
+									WHERE id in (?,?)", array($tmp[1]['id'],$tmp[0]['id'])); 
+							}	
+						}
+						
+						// normal state, needs actual uptime
+						db_execute_prepared("INSERT INTO plugin_uptime_data (host_id,uptime,timestamp,state,info) 
+							VALUES ( ? , ? , unix_timestamp(),'O', 'Normal state, updating uptime')",
+							array ($host['id'], $host['uptime']));
+						
 					}
 
 					if ($old[$hid]['state'] == "D" || $old[$hid]['uptime'] == 0)	{	// D->U
