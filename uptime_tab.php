@@ -80,3 +80,7 @@ function uptime_display_form() {
  	</form>
        </td>
      <tr><td>
+<?php
+
+}
+
