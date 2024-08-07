@@ -34,6 +34,7 @@ If you find a problem, let me know via github or https://forums.cacti.net
 ## Changelog
 	--- 0.2
 		Add Uptime Tab
+		Add graph display limit (20 restarts max)
 	--- 0.1
 		Beginning
 
