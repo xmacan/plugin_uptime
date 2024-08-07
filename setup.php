@@ -92,19 +92,24 @@ function seconds_to_time($secs)	{
 function uptime_rrd_graph_graph_options ($data) {
 	global $config;
 
-	$host_id = db_fetch_cell_prepared('SELECT host_id FROM graph_local WHERE id = ?', array ($data['graph_id'])); 
+	$host_id = db_fetch_cell_prepared('SELECT host_id FROM graph_local WHERE id = ?', array ($data['graph_id']));
 	$restarts = db_fetch_assoc_prepared ("SELECT timestamp FROM plugin_uptime_data WHERE
-		host_id = ? AND state = 'R' AND timestamp BETWEEN ? AND ? ORDER BY timestamp", 
+		host_id = ? AND state = 'R' AND timestamp BETWEEN ? AND ? ORDER BY timestamp desc",
 			array($host_id, $data['start'], $data['end']));
 
 	$count = 0;
 	foreach ($restarts as $restart)	{
-		$data['txt_graph_items'] .= RRD_NL . "VRULE:" . $restart['timestamp'] . "#000000:" . RRD_NL;
+		if ($count < 20) { 
+			$data['txt_graph_items'] .= RRD_NL . "VRULE:" . $restart['timestamp'] . "#000000:" . RRD_NL;
+		}
 		$count++;
 	}
 
 	if ($count > 0)	{
 		$data['graph_opts'] .=  'COMMENT:" Device was restarted ' . $count . ' x - black vert. line! \\n"' . RRD_NL;
+		if ($count > 20)	{
+			$data['graph_opts'] .=  'COMMENT:" Displaying only last 20 restarts \\n"' . RRD_NL;
+		}
 	}
 
 	return $data;
@@ -127,7 +132,7 @@ function uptime_poller_bottom () {
 	
 	$hosts = db_fetch_assoc ("SELECT id, snmp_sysUpTimeInstance AS uptime FROM host WHERE disabled != 'on' AND availability_method IN (1,2,5,6)");
 	$count = cacti_sizeof($hosts);
-    
+
 	if ($count > 0)	{
 		foreach ($hosts as $host)	{
 			$hid = $host['id'];
