@@ -1,9 +1,10 @@
 function applyFilter() {
-                strURL  = 'uptime_tab.php' +
-                        '?host_id=' + $('#host_id').val() +
-                        '&header=false';
-                loadPageNoHeader(strURL);
-        }
+	strURL  = 'uptime_tab.php' +
+		'?host_id=' + $('#host_id').val() +
+		'&header=false';
+
+	loadPageNoHeader(strURL);
+}
 
 function clearFilter() {
 	strURL = 'uptime_tab.php?clear=1&header=false';

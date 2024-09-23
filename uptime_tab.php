@@ -1,7 +1,7 @@
 <?php
 /*
  +-------------------------------------------------------------------------+
- | Copyright (C) 2021-2022 Petr Macek                                      |
+ | Copyright (C) 2021-2024 Petr Macek                                      |
  |                                                                         |
  | This program is free software; you can redistribute it and/or           |
  | modify it under the terms of the GNU General Public License             |
@@ -19,7 +19,7 @@
  | about.php and/or the AUTHORS file for specific developer information.   |
  +-------------------------------------------------------------------------+
  | https://github.com/xmacan/                                              |
- | http://www.cacti.net/                                                   |
+ | https://www.cacti.net/                                                   |
  +-------------------------------------------------------------------------+
 */
 
@@ -28,34 +28,33 @@ include_once('./include/auth.php');
 include_once('./lib/snmp.php');
 include_once('./plugins/uptime/functions.php');
 
-
 set_default_action();
 
 $selectedTheme = get_selected_theme();
 
 switch (get_request_var('action')) {
-        case 'ajax_hosts':
+	case 'ajax_hosts':
 
-                $sql_where = '';
+		$sql_where = '';
+		get_allowed_ajax_hosts (false, 'applyFilter', $sql_where);
 
-                get_allowed_ajax_hosts (false, 'applyFilter', $sql_where);
+		break;
 
-                break;
-
-        default:
+	default:
 		general_header();
 		uptime_display_form();
-		if (get_request_var('host_id')) {
+		if (get_filter_request_var('host_id')) {
 			uptime_display_events(get_request_var('host_id'));
 		}
 		bottom_footer();
-                break;
+
+		break;
 }
 
 
 function uptime_display_form() {
 	global $config;
-	
+
 	print get_md5_include_js($config['base_path'].'/plugins/uptime/uptime.js');
 
 	$host_where = '';
@@ -64,22 +63,22 @@ function uptime_display_form() {
 ?>
 
 	<tr>
- 	 <td>
-  	  <form name="form_uptime" action="uptime_tab.php">
-   		<table width="30%" cellpadding="0" cellspacing="0">
-    		<tr class="navigate_form">
-     		<td>
-		       <?php print html_host_filter(get_request_var('host_id'), 'applyFilter', $host_where);?>
+	  <td>
+  	    <form name="form_uptime" action="uptime_tab.php">
+	      <table width="30%" cellpadding="0" cellspacing="0">
+	        <tr class="navigate_form">
+	          <td>
+	            <?php print html_host_filter(get_request_var('host_id'), 'applyFilter', $host_where);?>
 
-     		<td>
-<!--      			<input type='submit' class='ui-button ui-corner-all ui-widget' id='refresh' value='<?php print __('Go');?>' title='<?php print __esc('Set/Refresh Filters');?>'> -->
-      			<input type='button' class='ui-button ui-corner-all ui-widget' id='clear' value='<?php print __('Clear');?>' title='<?php print __esc('Clear Filters');?>'> 
-     		</td>
-    		</tr>
-  		</table>
- 	</form>
-       </td>
-     <tr><td>
+	          <td>
+	            <input type='button' class='ui-button ui-corner-all ui-widget' id='clear' value='<?php print __('Clear');?>' title='<?php print __esc('Clear Filters');?>'> 
+	          </td>
+	        </tr>
+	      </table>
+	    </form>
+	  </td>
+	<tr>
+	  <td>
 <?php
 
 }
