@@ -32,6 +32,10 @@ set_default_action();
 
 $selectedTheme = get_selected_theme();
 
+if (get_request_var('clear')) {
+	unset($_SESSION['plugin_uptime_host_id']);
+}
+
 switch (get_request_var('action')) {
 	case 'ajax_hosts':
 
@@ -43,8 +47,13 @@ switch (get_request_var('action')) {
 	default:
 		general_header();
 		uptime_display_form();
+
 		if (get_filter_request_var('host_id')) {
 			uptime_display_events(get_request_var('host_id'));
+		} elseif (isset($_SESSION['plugin_uptime_host_id'])) {
+			uptime_display_events($_SESSION['plugin_uptime_host_id']);
+		} else {
+			uptime_stats();
 		}
 		bottom_footer();
 
@@ -57,29 +66,44 @@ function uptime_display_form() {
 
 	print get_md5_include_js($config['base_path'].'/plugins/uptime/uptime.js');
 
+	if (get_filter_request_var('host_id')) {
+		$host_id = get_filter_request_var('host_id');
+	} else if (isset($_SESSION['plugin_uptime_host_id'])) {
+		$host_id = $_SESSION['plugin_uptime_host_id'];
+	} else {
+		$host_id = -1;
+	}
+
 	$host_where = '';
 
+	form_start(html_escape(basename($_SERVER['PHP_SELF'])), 'form_uptime');
+
 	html_start_box('<strong>Uptime</strong>', '100%', '', '3', 'center', '');
-?>
 
-	<tr>
-	  <td>
-  	    <form name="form_uptime" action="uptime_tab.php">
-	      <table width="30%" cellpadding="0" cellspacing="0">
-	        <tr class="navigate_form">
-	          <td>
-	            <?php print html_host_filter(get_request_var('host_id'), 'applyFilter', $host_where);?>
+	print "<tr class='even noprint'>";
+	print "<td>";
+	print "<table class='filterTable'>";
+	print "<tr>";
 
-	          <td>
-	            <input type='button' class='ui-button ui-corner-all ui-widget' id='clear' value='<?php print __('Clear');?>' title='<?php print __esc('Clear Filters');?>'> 
-	          </td>
-	        </tr>
-	      </table>
-	    </form>
-	  </td>
-	<tr>
-	  <td>
-<?php
+	print html_host_filter($host_id, 'applyFilter', $host_where, false, true);
 
+	print '<td>';
+	print '<input type="submit" class="ui-button ui-corner-all ui-widget" id="refresh" value="' . __('Go') . '" title="' . __esc('Find') . '">';
+	print '<input type="button" class="ui-button ui-corner-all ui-widget" id="clear" value="' . __('Clear') . '" title="' . __esc('Clear Filters') . '">';
+	print '</td>';
+	print '</tr>';
+	print '</table>';
+
+	form_end(false);
+
+	html_end_box();
 }
+
+function uptime_stats() {
+	echo 'tady budou statistiky';
+}
+
+
+
+
 

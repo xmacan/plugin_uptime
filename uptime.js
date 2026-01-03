@@ -1,5 +1,5 @@
 function applyFilter() {
-	strURL  = 'uptime_tab.php' +
+	strURL = 'uptime_tab.php' +
 		'?host_id=' + $('#host_id').val() +
 		'&header=false';
 
@@ -14,10 +14,6 @@ function clearFilter() {
 $(function() {
 	$('#clear').unbind().on('click', function() {
 		clearFilter();
-	});
-
-	$('#filter').unbind().on('change', function() {
-		applyFilter();
 	});
 
 	$('#form_uptime').unbind().on('submit', function(event) {
